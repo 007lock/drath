@@ -41,7 +41,7 @@ func createContext(db *gorm.DB) (context.Context, error) {
 	return ctx, nil
 }
 
-func TestFetchCriterias(t *testing.T) {
+func TestFetchRandomCriterias(t *testing.T) {
 	// Init mock db
 	db, mock, err := createGormSession()
 	if err != nil {
@@ -49,8 +49,19 @@ func TestFetchCriterias(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
+	// fetch_random_repository_condition_test
 	mock.ExpectQuery(`SELECT * FROM "table" WHERE (field = $1) AND (and_field = $2) AND (and_field = $3 OR and_or_field = $4) AND (field = $5 OR or_field = $6) ORDER BY random(),"table"."id" ASC LIMIT 1`).
 		WithArgs(1, 2, 3, 4, 5, 6).
+		WillReturnRows(mock.NewRows([]string{"id"}).
+			AddRow(1))
+	// fetch_random_repository_join_test
+	mock.ExpectQuery(`SELECT "table".* FROM "table" join relation on relation.table_id=table.id join relation2 on relation2.table_id=table.id WHERE (field = $1) AND (relation.field = $2) AND (relation2.field = $3) ORDER BY random(),"table"."id" ASC LIMIT 1`).
+		WithArgs(1, 2, 3).
+		WillReturnRows(mock.NewRows([]string{"id"}).
+			AddRow(1))
+	// fetch_random_repository_group_by_test
+	mock.ExpectQuery(`SELECT "table".* FROM "table" join relation on relation.table_id=table.id join relation2 on relation2.table_id=table.id WHERE (field = $1) AND (relation.field = $2) AND (relation2.field = $3) GROUP BY relation.id ORDER BY random(),"table"."id" ASC LIMIT 1`).
+		WithArgs(1, 2, 3).
 		WillReturnRows(mock.NewRows([]string{"id"}).
 			AddRow(1))
 
@@ -72,7 +83,7 @@ func TestFetchCriterias(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "NewGormFetchRepository",
+			name: "fetch_random_repository_condition_test",
 			args: args{
 				c:     c,
 				table: "table",
@@ -114,6 +125,77 @@ func TestFetchCriterias(t *testing.T) {
 							Value:     6,
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "fetch_random_repository_join_test",
+			args: args{
+				c:     c,
+				table: "table",
+				item:  new(ModelBasis),
+				crit: &contract.RepoCriterias{
+					Conditions: []*contract.RepoCondition{
+						{
+							Field:     "field",
+							Operation: "=",
+							Value:     1,
+						},
+						{
+							Field:     "relation.field",
+							Operation: "=",
+							Value:     2,
+						},
+						{
+							Field:     "relation2.field",
+							Operation: "=",
+							Value:     3,
+						},
+					},
+					Joins: []*contract.RepoJoin{
+						&contract.RepoJoin{
+							Join: "join relation on relation.table_id=table.id",
+						},
+						&contract.RepoJoin{
+							Join: "join relation2 on relation2.table_id=table.id",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "fetch_random_repository_group_by_test",
+			args: args{
+				c:     c,
+				table: "table",
+				item:  new(ModelBasis),
+				crit: &contract.RepoCriterias{
+					Conditions: []*contract.RepoCondition{
+						{
+							Field:     "field",
+							Operation: "=",
+							Value:     1,
+						},
+						{
+							Field:     "relation.field",
+							Operation: "=",
+							Value:     2,
+						},
+						{
+							Field:     "relation2.field",
+							Operation: "=",
+							Value:     3,
+						},
+					},
+					Joins: []*contract.RepoJoin{
+						&contract.RepoJoin{
+							Join: "join relation on relation.table_id=table.id",
+						},
+						&contract.RepoJoin{
+							Join: "join relation2 on relation2.table_id=table.id",
+						},
+					},
+					GroupBy: []string{"relation.id"},
 				},
 			},
 		},
